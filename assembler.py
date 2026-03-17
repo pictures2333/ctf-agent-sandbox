@@ -62,11 +62,8 @@ def assemble_and_write(
     state_file: str | Path = STATE_FILE,
 ) -> AssemblyResult:
     """Assemble full artifacts and write files/state without building image."""
-    # Parse config and ensure the auto-generated sandbox hint skill exists.
-    parsed = parse_config(config)
-    generated_skill_path = _generate_sandbox_env_skill(parsed)
-    if generated_skill_path:
-        parsed.sandbox_env_skill_path = generated_skill_path
+    # Parse config and ensure generated environment skill is ready.
+    parsed = _prepare_assembly_config(config)
     result = assemble(config=parsed)
 
     # Write generated Docker build artifacts to target output directory.
@@ -78,6 +75,8 @@ def assemble_and_write(
     startup_path.parent.mkdir(parents=True, exist_ok=True)
     startup_path.write_text(result.startup_script, encoding="utf-8")
     startup_path.chmod(0o755)
+    # Also write runtime startup script to the configured bind-mount host path.
+    _write_runtime_startup_script(parsed.startup_script_host_path, result.startup_script)
 
     # Write state template for downstream runtime flow (image not built yet).
     payload = {
@@ -91,13 +90,11 @@ def assemble_and_write(
 def build_image(
     config: SandboxConfig | dict[str, Any],
     tag: str | None = None,
+    verbose: bool = False,
 ) -> str:
     """Build image via Docker SDK and persist image/config state."""
-    # Parse config and ensure the auto-generated sandbox hint skill exists.
-    parsed = parse_config(config)
-    generated_skill_path = _generate_sandbox_env_skill(parsed)
-    if generated_skill_path:
-        parsed.sandbox_env_skill_path = generated_skill_path
+    # Parse config and ensure generated environment skill is ready.
+    parsed = _prepare_assembly_config(config)
     result = assemble(parsed)
 
     # Materialize temporary Docker build context and invoke Docker SDK image build.
@@ -108,15 +105,24 @@ def build_image(
         startup_path.parent.mkdir(parents=True, exist_ok=True)
         startup_path.write_text(result.startup_script, encoding="utf-8")
 
+        # Build image through low-level API to support realtime log streaming.
         client = docker.from_env()
-        image, _ = client.images.build(
+        image_tag = tag or parsed.image_name
+        logs = client.api.build(
             path=str(build_root),
-            tag=tag or parsed.image_name,
+            tag=image_tag,
             rm=True,
+            decode=True,
         )
+        image_id = _consume_build_logs(logs=logs, verbose=verbose)
+        if not image_id:
+            image = client.images.get(image_tag)
+            image_id = _require_str_attr(image, "id", "docker image")
+
+    # Write runtime startup script to the configured bind-mount host path.
+    _write_runtime_startup_script(parsed.startup_script_host_path, result.startup_script)
 
     # Persist runtime state used by `run_container`.
-    image_id = _require_str_attr(image, "id", "docker image")
     payload = {
         "image_id": image_id,
         "run_params": result.container_options,
@@ -259,7 +265,8 @@ def _to_docker_volume_map(volume_specs: list[str]) -> dict[str, dict[str, str]]:
         parts = spec.split(":")
         if len(parts) < 2:
             continue
-        host_path = str(Path(parts[0]).expanduser())
+        # Docker SDK requires absolute host paths for bind mounts.
+        host_path = str(Path(parts[0]).expanduser().resolve())
         bind_path = parts[1]
         mode = "ro" if len(parts) >= 3 and parts[2] == "ro" else "rw"
         out[host_path] = {"bind": bind_path, "mode": mode}
@@ -299,6 +306,115 @@ def _require_str_attr(obj: object, attr: str, label: str) -> str:
     if not isinstance(value, str) or not value:
         raise TypeError(f"{label} missing valid `{attr}`")
     return value
+
+
+def _consume_build_logs(logs: Any, verbose: bool) -> str | None:
+    """Consume Docker build logs, optionally print them, and capture image id."""
+    if logs is None or not hasattr(logs, "__iter__"):
+        return None
+
+    image_id: str | None = None
+    # Read the build stream until completion so Docker build fully finishes.
+    for entry in logs:
+        normalized = _normalize_build_log_entry(entry)
+        if normalized is None:
+            continue
+        if verbose:
+            _print_build_log_entry(normalized)
+        captured = _extract_image_id_from_log_entry(normalized)
+        if captured:
+            image_id = captured
+        error = _extract_error_from_log_entry(normalized)
+        if error:
+            raise RuntimeError(f"docker build failed: {error}")
+    return image_id
+
+
+def _print_build_log_entry(entry: Any) -> None:
+    """Print one Docker build log entry across dict/bytes/string formats."""
+    normalized = _normalize_build_log_entry(entry)
+    if normalized is None:
+        return
+
+    # Raw stream chunks from build output.
+    stream = normalized.get("stream")
+    if isinstance(stream, str) and stream:
+        print(stream, end="", flush=True)
+
+    # Structured status/progress fields for pull/build steps.
+    status = normalized.get("status")
+    progress = normalized.get("progress")
+    if isinstance(status, str) and status:
+        if isinstance(progress, str) and progress:
+            print(f"{status} {progress}", flush=True)
+        else:
+            print(status, flush=True)
+
+    # Build errors and auxiliary metadata.
+    error = normalized.get("error")
+    if isinstance(error, str) and error:
+        print(error, flush=True)
+    aux = normalized.get("aux")
+    if isinstance(aux, dict) and aux:
+        print(aux, flush=True)
+
+
+def _extract_image_id_from_log_entry(entry: Any) -> str | None:
+    """Extract built image id from Docker log entry when available."""
+    normalized = _normalize_build_log_entry(entry)
+    if normalized is None:
+        return None
+    aux = normalized.get("aux")
+    if not isinstance(aux, dict):
+        return None
+    image_id = aux.get("ID")
+    return image_id if isinstance(image_id, str) and image_id else None
+
+
+def _extract_error_from_log_entry(entry: Any) -> str | None:
+    """Extract build error message from Docker log entry when present."""
+    normalized = _normalize_build_log_entry(entry)
+    if normalized is None:
+        return None
+    error = normalized.get("error")
+    return error if isinstance(error, str) and error else None
+
+
+def _normalize_build_log_entry(entry: Any) -> dict[str, Any] | None:
+    """Normalize Docker SDK log entry into a dictionary payload."""
+    if isinstance(entry, dict):
+        return entry
+    if isinstance(entry, (bytes, bytearray)):
+        text = entry.decode("utf-8", errors="replace").strip()
+    elif isinstance(entry, str):
+        text = entry.strip()
+    else:
+        return None
+    if not text:
+        return None
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        print(text, flush=True)
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _prepare_assembly_config(config: SandboxConfig | dict[str, Any]) -> SandboxConfig:
+    """Normalize config and apply generated sandbox environment skill path."""
+    parsed = parse_config(config)
+    generated_skill_path = _generate_sandbox_env_skill(parsed)
+    if generated_skill_path:
+        parsed.sandbox_env_skill_path = generated_skill_path
+    return parsed
+
+
+def _write_runtime_startup_script(host_path: str, content: str) -> None:
+    """Write generated runtime startup script to configured host bind path."""
+    target = Path(host_path).expanduser().resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
+    target.chmod(0o755)
 
 
 def _generate_sandbox_env_skill(config: SandboxConfig) -> str | None:

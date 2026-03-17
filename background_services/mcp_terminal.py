@@ -14,9 +14,10 @@ def _service_mcp_terminal(config: SandboxConfig, context: BuildContext) -> None:
     container_path = options.get("container_path", "/mcp")
 
     # Install runtime dependency and enqueue startup command.
+    context.pacman_packages.add("python-requests")
     context.yay_packages.add("python-mcp")
     context.startup_commands.append(
-        f"(cd {container_path}/mcp_terminal "
+        f"(cd {container_path} "
         "&& uv sync "
         f"&& uv run main.py --host 127.0.0.1 --port 8000 --path {container_path} "
         "--workdir /home/agent/challenge --shell /bin/bash"

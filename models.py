@@ -68,7 +68,7 @@ class SandboxConfig(BaseModel):
     container_name_prefix: str = "agent-sandbox"
     workspace_host_path: str | None = None
     workspace_container_path: str = "/home/agent/challenge"
-    startup_script_host_path: str = "./script/startup.sh"
+    startup_script_host_path: str = "./.sandbox_generated/script/startup.sh"
 
     @field_validator("skills", mode="before")
     @classmethod

@@ -10,8 +10,8 @@ services:
     options: {}
   - name: mcp-terminal
     options:
-      host_path: ./mcp
-      container_path: /mcp
+      host_path: ./mcp/mcp_terminal
+      container_path: /mcp/mcp_terminal
       skill_path: ./skills/mcp-terminal-operator
 agent-cli-tools:
   - name: codex
@@ -30,21 +30,24 @@ agent-cli-tools:
       config_host_path: ~/.config/opencode/opencode.json
       prompt_filename: AGENTS.md
 packages:
-  - name: System Packages
+  - name: Linux Userspace Pwn
     pacman:
-      - openssh
       - python-pwntools
       - checksec
-    yay:
-      - python-mcp
+    yay: []
     gem:
       - seccomp-tools
+      - one_gadget
     npm: []
     pip: []
 custom_install_commands:
-  - command: npm install -g pnpm
-    run_as: root
-  - command: go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+  - command: cd ~ && git clone https://github.com/pwndbg/pwndbg.git && cd ~/pwndbg && yes | ./setup.sh
+    run_as: agent
+  - command: | 
+      DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker} && \
+      mkdir -p $DOCKER_CONFIG/cli-plugins && \
+      curl -SL https://github.com/docker/compose/releases/download/v5.0.1/docker-compose-linux-x86_64 -o $DOCKER_CONFIG/cli-plugins/docker-compose && \
+      chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
     run_as: agent
 prompt_file: ./prompt/sandbox.md
 skills: []
@@ -53,4 +56,4 @@ image_name: agent-sandbox
 container_name_prefix: agent-sandbox
 workspace_host_path: /home/p23/ctf/midnightflag2026/heap
 workspace_container_path: /home/agent/challenge
-startup_script_host_path: ./script/startup.sh
+startup_script_host_path: ./.sandbox_generated/script/startup.sh

@@ -49,6 +49,7 @@ def _build_parser() -> argparse.ArgumentParser:
     build_parser = subparsers.add_parser("build-image", help="Build image and persist package state file")
     build_parser.add_argument("--config", default="config.yaml", help="Path to YAML config object")
     build_parser.add_argument("--tag", default=None, help="Optional docker image tag override")
+    build_parser.add_argument("--verbose", action="store_true", help="Print Docker build logs")
 
     # Run-container command: run from previously persisted state.
     run_parser = subparsers.add_parser("run-container", help="Run container and print container id")
@@ -80,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
     # Dispatch `build-image` command.
     if args.command == "build-image":
         config = _load_config(args.config)
-        image_id = build_image(config=config, tag=args.tag)
+        image_id = build_image(config=config, tag=args.tag, verbose=args.verbose)
         print(image_id)
         return 0
 

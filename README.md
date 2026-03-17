@@ -22,6 +22,9 @@ uv run -m ctf_agent_sandbox assemble \
 # Build image and persist image_id into state file
 uv run -m ctf_agent_sandbox build-image --config config.example.yaml
 
+# Build image with Docker build logs
+uv run -m ctf_agent_sandbox build-image --config config.example.yaml --verbose
+
 # Run container from state file
 uv run -m ctf_agent_sandbox run-container
 
@@ -67,3 +70,4 @@ Main keys:
   `options.prompt_filename`
 - `packages`: package groups
 - `custom_install_commands`: custom install commands (`run_as: root|agent`)
+- `startup_script_host_path`: generated runtime startup path (use `.sandbox_generated/...`, keep template files untouched)
