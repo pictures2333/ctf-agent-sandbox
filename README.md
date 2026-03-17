@@ -1,4 +1,4 @@
-# ctf-agent-sandbox
+# ctf_agent_sandbox
 
 Python package for building and running your CTF sandbox with Docker SDK.
 
@@ -19,13 +19,13 @@ uv sync
 3. Generate artifacts from config:
 
 ```bash
-uv run ctf-agent-sandbox --config config.example.json --output-dir .
+uv run -m ctf_agent_sandbox --config config.example.json --output-dir .
 ```
 
-Use module entrypoint if needed:
+Alternative (if console script is installed):
 
 ```bash
-uv run -m ctf_agent_sandbox --config config.example.json --output-dir .
+uv run ctf_agent_sandbox --config config.example.json --output-dir .
 ```
 
 ## Use as module
@@ -49,7 +49,7 @@ Stops and removes the container.
 
 ```toml
 [tool.uv.sources]
-ctf-agent-sandbox = { path = "../ctf_agent_sandbox" }
+ctf_agent_sandbox = { path = "../ctf_agent_sandbox" }
 ```
 
 ### Config

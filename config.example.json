@@ -45,15 +45,13 @@
       "pip": []
     }
   ],
-  "prompt_file": "./prompt/pwner.md",
+  "prompt_file": "./prompt/sandbox.md",
   "skills": [
-    "./skills/shared-skill-a",
-    "./skills/shared-skill-b"
   ],
   "sandbox_env_skill_path": "./.sandbox_generated/skills/sandbox-environment-hint",
   "image_name": "agent-sandbox",
   "container_name_prefix": "agent-sandbox",
-  "workspace_host_path": "/absolute/path/to/your/challenge",
+  "workspace_host_path": "/home/p23/ctf/midnightflag2026/heap",
   "workspace_container_path": "/home/agent/challenge",
   "startup_script_host_path": "./script/startup.sh",
   "codex_auth_host_path": "~/.codex/auth.json",

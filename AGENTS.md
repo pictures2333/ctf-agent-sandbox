@@ -36,7 +36,7 @@
 
 ## Build, Test, and Development Commands
 - `uv sync` 安裝依賴。
-- `uv run ctf-agent-sandbox --config config.example.json --output-dir .` 生成組裝檔案。
+- `uv run ctf_agent_sandbox --config config.example.json --output-dir .` 生成組裝檔案。
 - `uv run -m ctf_agent_sandbox --config config.example.json --output-dir .` 以 module 方式執行。
 - `python -m compileall -q .` 做最小語法檢查。
 

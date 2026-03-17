@@ -62,7 +62,7 @@ wheels = [
 ]
 
 [[package]]
-name = "ctf-agent-sandbox"
+name = "ctf_agent_sandbox"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
