@@ -19,7 +19,11 @@ ctf_agent_sandbox = "ctf_agent_sandbox.cli:main"
 
 [tool.setuptools]
 package-dir = {ctf_agent_sandbox = "."}
-packages = ["ctf_agent_sandbox", "ctf_agent_sandbox.background_services"]
+packages = [
+    "ctf_agent_sandbox",
+    "ctf_agent_sandbox.background_services",
+    "ctf_agent_sandbox.agent_cli_tools",
+]
 
 [tool.uv]
 package = true

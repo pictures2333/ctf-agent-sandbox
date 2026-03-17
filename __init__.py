@@ -11,6 +11,7 @@ from .assembler import (
     run_container,
     stop_container,
 )
+from .agent_cli_tools.registry import AgentCliToolSpec, register_agent_cli_tool
 from .models import SandboxConfig, parse_config
 from .service_registry import register_background_service
 
@@ -22,6 +23,8 @@ __all__ = [
     "build_image",
     "run_container",
     "stop_container",
+    "AgentCliToolSpec",
+    "register_agent_cli_tool",
     "register_background_service",
     "SandboxConfig",
     "parse_config",

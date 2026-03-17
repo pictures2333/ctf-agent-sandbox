@@ -9,7 +9,7 @@
 - 依照 config（物件 / YAML）生成 Dockerfile 與 startup script
 - 使用 Docker SDK build image / run container / stop container
 - 以插件化方式擴充 background services（例如 dockerd、mcp-terminal）
-- 自動掛載 AI 工具所需 auth/config（codex / gemini / opencode）
+- 以插件化方式擴充 agent CLI tools（例如 codex、gemini、opencode）
 - 在 build image 時自動生成 sandbox environment hint skill 並掛載
 
 # Repository Guidelines
@@ -24,6 +24,12 @@
   - stop_container
 - `modules.py` 只放 pipeline 與 BuildContext。
 - `service_registry.py` 放 background service 註冊與調度邏輯。
+- `agent_cli_tools/` 放所有 agent CLI tool 插件與 registry：
+  - `registry.py`
+  - `codex.py`
+  - `gemini.py`
+  - `opencode.py`
+  - `__init__.py`（bootstrap）
 - `background_services/` 放所有 background service 插件：
   - `dockerd.py`
   - `mcp_terminal.py`
@@ -47,6 +53,7 @@
 - 變更時優先延續現有風格，不做不必要的大重構。
 - 修改前先搜尋既有實作，避免重複邏輯與規則漂移。
 - 新增功能時，優先補「擴充點」而不是寫死分支。
+- 寫程式時必須加英文註解，並用註解分隔主要 code block（初始化、轉換、分派、輸出等區段）。
 
 ## Testing Guidelines
 - 本專案目前沒有完整 pytest 測試；至少要做：
@@ -67,7 +74,12 @@
   - 不放 background service registry 細節
   - 不放 service 專屬實作（例如 mcp-terminal）
 - 所有 background service 一律放 `background_services/` 並經過 `service_registry.py` 註冊。
+- 所有 agent CLI tool 一律放 `agent_cli_tools/` 並經過 `agent_cli_tools/registry.py` 註冊。
 - service 可調參數一律走 `service_options[service_name]`。
+- tool 可調參數一律走 `agent-cli-tools[].options`。
+- agent CLI tool 的 auth/config/prompt 檔名不得在程式中寫死預設值，必須由 `agent-cli-tools[].options` 提供。
+- `prompt_file` 必須由 agent CLI tool plugin 決定掛載目標檔名，不可在核心硬編碼。
+- 同一份 `prompt_file` 需要可同時掛載到多個工具目標檔名（例如 `AGENTS.md`、`GEMINI.md`）。
 - state 檔只能包含：
   - `image_id`
   - `run_params`
@@ -82,6 +94,7 @@
 - env skill 內容必須包含：
   - runtime summary
   - packages（依 `name` 分段）
+  - agent CLI tools 與其 options
   - background services 與其 options
 - service 專屬 skill 只能由 service plugin 注入，不可在核心寫死。
 

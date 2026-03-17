@@ -32,18 +32,23 @@ def assemble(
     config: SandboxConfig | dict[str, Any],
 ) -> AssemblyResult:
     """Build in-memory artifacts from a config object."""
+    # Bootstrap built-in plugin registries before executing the assembly pipeline.
     ensure_builtin_background_services_registered()
+    # Normalize raw dict/object input into a validated config model.
     parsed = parse_config(config)
     context = BuildContext()
 
+    # Execute all pipeline modules in order to populate build context.
     for module_func in DEFAULT_PIPELINE:
         module_func(parsed, context)
 
+    # Add workspace/startup mounts and deduplicate all volume specs.
     if parsed.workspace_host_path:
         context.volumes.append(f"{parsed.workspace_host_path}:{parsed.workspace_container_path}")
     context.volumes.append(f"{parsed.startup_script_host_path}:/startup.sh")
     context.volumes = _dedupe_list(context.volumes)
 
+    # Render final text artifacts and runtime options.
     return AssemblyResult(
         dockerfile=render_dockerfile(context),
         startup_script=render_startup_script(context),
@@ -73,12 +78,14 @@ def build_image(
     tag: str | None = None,
 ) -> str:
     """Build image via Docker SDK and persist image/config state."""
+    # Parse config and ensure the auto-generated sandbox hint skill exists.
     parsed = parse_config(config)
     generated_skill_path = _generate_sandbox_env_skill(parsed)
     if generated_skill_path:
         parsed.sandbox_env_skill_path = generated_skill_path
     result = assemble(parsed)
 
+    # Materialize temporary Docker build context and invoke Docker SDK image build.
     with tempfile.TemporaryDirectory(prefix="ctf-sandbox-build-") as tmp_dir:
         build_root = Path(tmp_dir)
         (build_root / "Dockerfile").write_text(result.dockerfile, encoding="utf-8")
@@ -93,22 +100,26 @@ def build_image(
             rm=True,
         )
 
+    # Persist runtime state used by `run_container`.
+    image_id = _require_str_attr(image, "id", "docker image")
     payload = {
-        "image_id": image.id,
+        "image_id": image_id,
         "run_params": result.container_options,
     }
     STATE_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    return image.id
+    return image_id
 
 
 def run_container(
     state_file: str | Path = STATE_FILE,
 ) -> str:
     """Run a container from stored state and return container id."""
+    # Resolve image id and run options from persisted state.
     state = _load_state(state_file)
     image_ref = state["image_id"]
     opts = state["run_params"]
 
+    # Start one container with a generated unique name and return only container id.
     client = docker.from_env()
     container_name = _generate_container_name(opts.get("name_prefix", "agent-sandbox"))
     container = client.containers.run(
@@ -119,7 +130,8 @@ def run_container(
         command=opts["command"],
         volumes=_to_docker_volume_map(opts["volumes"]),
     )
-    return container.id
+    container_id = _require_str_attr(container, "id", "docker container")
+    return container_id
 
 
 def stop_container(container_id: str) -> None:
@@ -135,6 +147,7 @@ def render_dockerfile(context: BuildContext) -> str:
     pacman = " \\\n    ".join(sorted(context.pacman_packages))
     out: list[str] = ["FROM archlinux:latest", ""]
 
+    # Base system packages.
     if pacman:
         out.extend(
             [
@@ -144,6 +157,7 @@ def render_dockerfile(context: BuildContext) -> str:
             ]
         )
 
+    # Create runtime user and configure sudo policy.
     out.extend(
         [
             "RUN useradd -m agent && usermod -aG wheel,docker agent",
@@ -152,20 +166,25 @@ def render_dockerfile(context: BuildContext) -> str:
         ]
     )
 
+    # Static file copies and environment variables.
     for src, dst in context.copy_files:
         out.append(f"COPY {src} {dst}")
 
     for key, value in context.env.items():
         out.append(f"ENV {key}={value}")
 
+    # Root-phase custom/setup commands.
     if context.root_commands:
         out.append("RUN " + " && \\\n    ".join(context.root_commands))
 
+    # Switch to non-root user for user-level installs.
     out.extend(["", "USER agent"])
 
+    # Agent-phase custom/setup commands.
     if context.agent_commands:
         out.append("RUN " + " && \\\n    ".join(context.agent_commands))
 
+    # AUR packages via yay.
     if context.yay_packages:
         out.extend(
             [
@@ -174,17 +193,21 @@ def render_dockerfile(context: BuildContext) -> str:
             ]
         )
 
+    # Global npm packages.
     if context.npm_packages:
         out.append("RUN sudo npm install -g " + " ".join(sorted(context.npm_packages)))
 
+    # Ruby gems require root-level install path.
     if context.gem_packages:
         out.append("USER root")
         out.append("RUN gem install " + " ".join(sorted(context.gem_packages)) + " --no-user-install")
         out.append("USER agent")
 
+    # Python packages installed with uv pip.
     if context.pip_packages:
         out.append("RUN uv pip install --system " + " ".join(sorted(context.pip_packages)))
 
+    # Final workspace location.
     out.extend(["WORKDIR /home/agent/challenge", ""])
     return "\n".join(out)
 
@@ -253,15 +276,25 @@ def _generate_container_name(prefix: str) -> str:
     return f"{prefix}-{ts}-{suffix}"
 
 
+def _require_str_attr(obj: object, attr: str, label: str) -> str:
+    """Read a dynamic SDK attribute and ensure it is a string."""
+    value = getattr(obj, attr, None)
+    if not isinstance(value, str) or not value:
+        raise TypeError(f"{label} missing valid `{attr}`")
+    return value
+
+
 def _generate_sandbox_env_skill(config: SandboxConfig) -> str | None:
     """Generate sandbox environment hint skill and return its host path."""
     if not config.sandbox_env_skill_path:
         return None
 
+    # Prepare output directory and target skill file.
     skill_dir = Path(config.sandbox_env_skill_path).resolve()
     skill_dir.mkdir(parents=True, exist_ok=True)
     skill_file = skill_dir / "SKILL.md"
 
+    # Build package summary grouped by configured package group names.
     package_sections: list[str] = []
     for group in config.packages:
         lines: list[str] = [f"## name: {group.name}"]
@@ -277,9 +310,11 @@ def _generate_sandbox_env_skill(config: SandboxConfig) -> str | None:
             lines.append(f"- gem: {', '.join(group.gem)}")
         package_sections.append("\n".join(lines))
 
+    # Build runtime summary blocks for services and agent CLI tools.
     service_names = [service.name for service in config.services]
     services = ", ".join(service_names) if service_names else "(none)"
-    tools = ", ".join(config.ai_cli_tools) if config.ai_cli_tools else "(none)"
+    tool_names = [tool.name for tool in config.agent_cli_tools]
+    tools = ", ".join(tool_names) if tool_names else "(none)"
     package_text = "\n\n".join(package_sections) if package_sections else "## name: Base\n- (no extra packages)"
     service_sections: list[str] = []
     for service in config.services:
@@ -291,7 +326,17 @@ def _generate_sandbox_env_skill(config: SandboxConfig) -> str | None:
         else:
             service_sections.append("- options: (none)")
     service_text = "\n".join(service_sections) if service_sections else "## name: background-service\n- (none)"
+    tool_sections: list[str] = []
+    for tool in config.agent_cli_tools:
+        tool_sections.append(f"## name: agent-cli-tool:{tool.name}")
+        if tool.options:
+            for key, value in tool.options.items():
+                tool_sections.append(f"- {key}: {value}")
+        else:
+            tool_sections.append("- options: (none)")
+    tool_text = "\n".join(tool_sections) if tool_sections else "## name: agent-cli-tool\n- (none)"
 
+    # Emit final markdown content.
     content = "\n".join(
         [
             "---",
@@ -305,8 +350,11 @@ def _generate_sandbox_env_skill(config: SandboxConfig) -> str | None:
             f"- timezone: {config.timezone}",
             f"- locale: {config.locale.main}",
             f"- services: {services}",
-            f"- ai_cli_tools: {tools}",
+            f"- agent_cli_tools: {tools}",
             f"- workspace: {config.workspace_container_path}",
+            "",
+            "## Agent CLI Tools",
+            tool_text,
             "",
             "## Built-in Notes",
             "- This skill is generated automatically during `build_image`.",

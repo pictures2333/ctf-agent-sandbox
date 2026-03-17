@@ -13,10 +13,22 @@ services:
       host_path: ./mcp
       container_path: /mcp
       skill_path: ./skills/mcp-terminal-operator
-ai-cli-tools:
-  - codex
-  - gemini
-  - opencode
+agent-cli-tools:
+  - name: codex
+    options:
+      auth_host_path: ~/.codex/auth.json
+      config_host_path: ~/.codex/config.toml
+      prompt_filename: AGENTS.md
+  - name: gemini
+    options:
+      auth_host_path: ~/.gemini/oauth_creds.json
+      config_host_path: ~/.gemini/settings.json
+      prompt_filename: GEMINI.md
+  - name: opencode
+    options:
+      auth_host_path: ~/.local/share/opencode/auth.json
+      config_host_path: ~/.config/opencode/opencode.json
+      prompt_filename: AGENTS.md
 packages:
   - name: System Packages
     pacman:
@@ -42,9 +54,3 @@ container_name_prefix: agent-sandbox
 workspace_host_path: /home/p23/ctf/midnightflag2026/heap
 workspace_container_path: /home/agent/challenge
 startup_script_host_path: ./script/startup.sh
-codex_auth_host_path: ~/.codex/auth.json
-codex_config_host_path: ~/.codex/config.toml
-gemini_auth_host_path: ~/.gemini/oauth_creds.json
-gemini_config_host_path: ~/.gemini/settings.json
-opencode_auth_host_path: ~/.local/share/opencode/auth.json
-opencode_config_host_path: ~/.config/opencode/opencode.json
