@@ -19,23 +19,23 @@ uv sync
 3. Generate artifacts from config:
 
 ```bash
-uv run -m ctf_agent_sandbox assemble --config config.example.json --output-dir .
+uv run -m ctf_agent_sandbox assemble --config config.example.yaml --output-dir .
 ```
 
 Alternative (if console script is installed):
 
 ```bash
-uv run ctf_agent_sandbox assemble --config config.example.json --output-dir .
+uv run ctf_agent_sandbox assemble --config config.example.yaml --output-dir .
 ```
 
 CLI commands are aligned with the module API:
 
 ```bash
 # API: assemble_and_write(...)
-uv run -m ctf_agent_sandbox assemble --config config.example.json --output-dir .
+uv run -m ctf_agent_sandbox assemble --config config.example.yaml --output-dir .
 
 # API: build_image(...)
-uv run -m ctf_agent_sandbox build-image --config config.example.json
+uv run -m ctf_agent_sandbox build-image --config config.example.yaml
 
 # API: run_container(...)
 uv run -m ctf_agent_sandbox run-container
@@ -70,7 +70,7 @@ ctf_agent_sandbox = { path = "../ctf_agent_sandbox" }
 
 ### Config
 
-Use [config.example.json](/home/p23/develope/Agent-CTF-Bot_I-love-suisei/src/ctf_agent_sandbox/config.example.json) as template.
+Use [config.example.yaml](/home/p23/develope/Agent-CTF-Bot_I-love-suisei/src/ctf_agent_sandbox/config.example.yaml) as template.
 
 Key sections:
 - `services`: background service entries with `name` + `options`

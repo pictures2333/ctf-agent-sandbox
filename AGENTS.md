@@ -6,7 +6,7 @@
 這是一個以 Python package 形式實作的 CTF sandbox 組裝器。
 
 此專案提供以下能力：
-- 依照 config（物件 / JSON）生成 Dockerfile 與 startup script
+- 依照 config（物件 / YAML）生成 Dockerfile 與 startup script
 - 使用 Docker SDK build image / run container / stop container
 - 以插件化方式擴充 background services（例如 dockerd、mcp-terminal）
 - 自動掛載 AI 工具所需 auth/config（codex / gemini / opencode）
@@ -31,13 +31,13 @@
 - `models.py` 放 Pydantic models（`SandboxConfig` 等）。
 - `skills/` 放內建或共用 skill。
 - `.sandbox_generated/` 放自動生成產物（已 gitignore）。
-- `config.example.json` 為設定範例。
+- `config.example.yaml` 為設定範例。
 - `README.md` 給人類使用者。
 
 ## Build, Test, and Development Commands
 - `uv sync` 安裝依賴。
-- `uv run ctf_agent_sandbox --config config.example.json --output-dir .` 生成組裝檔案。
-- `uv run -m ctf_agent_sandbox --config config.example.json --output-dir .` 以 module 方式執行。
+- `uv run ctf_agent_sandbox assemble --config config.example.yaml --output-dir .` 生成組裝檔案。
+- `uv run -m ctf_agent_sandbox assemble --config config.example.yaml --output-dir .` 以 module 方式執行。
 - `python -m compileall -q .` 做最小語法檢查。
 
 ## Coding Style, Naming Conventions and Code Review Rules
@@ -91,7 +91,7 @@
 2. 是否把 service 邏輯寫回核心？
 3. state 結構是否仍只有 `image_id` + `run_params`？
 4. `python -m compileall -q .` 是否通過？
-5. `README.md` / `config.example.json` 是否同步更新？
+5. `README.md` / `config.example.yaml` 是否同步更新？
 
 ## Misc
 - 在執行任何指令前，先重新讀取：

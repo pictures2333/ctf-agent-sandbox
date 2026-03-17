@@ -3,19 +3,24 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
+
+import yaml
 
 from .assembler import STATE_FILE, assemble_and_write, build_image, run_container, stop_container
 from .models import SandboxConfig
 
 
 def _load_config(path: str) -> SandboxConfig:
-    """Load and validate sandbox config from JSON file path."""
+    """Load and validate sandbox config from YAML file path."""
     config_path = Path(path)
     if not config_path.exists():
-        raise SystemExit(f"{config_path} not found (CLI expects a JSON object file)")
-    raw = json.loads(config_path.read_text(encoding="utf-8"))
+        raise SystemExit(f"{config_path} not found (CLI expects a YAML object file)")
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise SystemExit(f"{config_path} must contain a YAML object at top level")
     return SandboxConfig.model_validate(raw)
 
 
@@ -25,11 +30,11 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     assemble_parser = subparsers.add_parser("assemble", help="Generate Dockerfile/startup script")
-    assemble_parser.add_argument("--config", default="config.json", help="Path to JSON config object")
+    assemble_parser.add_argument("--config", default="config.yaml", help="Path to YAML config object")
     assemble_parser.add_argument("--output-dir", default=".", help="Where to write generated files")
 
     build_parser = subparsers.add_parser("build-image", help="Build image and persist package state file")
-    build_parser.add_argument("--config", default="config.json", help="Path to JSON config object")
+    build_parser.add_argument("--config", default="config.yaml", help="Path to YAML config object")
     build_parser.add_argument("--tag", default=None, help="Optional docker image tag override")
 
     run_parser = subparsers.add_parser("run-container", help="Run container and print container id")
