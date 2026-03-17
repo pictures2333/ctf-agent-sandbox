@@ -19,13 +19,29 @@ uv sync
 3. Generate artifacts from config:
 
 ```bash
-uv run -m ctf_agent_sandbox --config config.example.json --output-dir .
+uv run -m ctf_agent_sandbox assemble --config config.example.json --output-dir .
 ```
 
 Alternative (if console script is installed):
 
 ```bash
-uv run ctf_agent_sandbox --config config.example.json --output-dir .
+uv run ctf_agent_sandbox assemble --config config.example.json --output-dir .
+```
+
+CLI commands are aligned with the module API:
+
+```bash
+# API: assemble_and_write(...)
+uv run -m ctf_agent_sandbox assemble --config config.example.json --output-dir .
+
+# API: build_image(...)
+uv run -m ctf_agent_sandbox build-image --config config.example.json
+
+# API: run_container(...)
+uv run -m ctf_agent_sandbox run-container
+
+# API: stop_container(...)
+uv run -m ctf_agent_sandbox stop-container --container-id <container_id>
 ```
 
 ## Use as module
@@ -39,8 +55,8 @@ from ctf_agent_sandbox import build_image, run_container, stop_container
 - `build_image(config)`  
 Builds the image and writes state to `.sandbox_state.json`.
 
-- `run_container(config=None)`  
-Runs a container from stored state (or overridden config) and returns container ID.
+- `run_container(state_file=STATE_FILE)`  
+Runs a container from stored state and returns container ID.
 
 - `stop_container(container_id)`  
 Stops and removes the container.

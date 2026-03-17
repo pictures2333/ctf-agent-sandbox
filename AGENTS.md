@@ -73,6 +73,9 @@
   - `run_params`
 - `run_container` 對外只回傳 `container_id`。
 - container name 不可固定，必須自動生成唯一名稱。
+- 必須確保 CLI 與 API 功能對齊：
+  - API 新增/刪除/調整時，CLI 子命令與參數必須同步
+  - CLI 變更時，API 行為與 README 說明必須同步
 
 ## Skill Rules
 - `sandbox_env_skill_path` 對應的 skill 在 build image 時自動生成。

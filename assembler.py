@@ -14,7 +14,7 @@ import docker
 
 from .background_services import ensure_builtin_background_services_registered
 from .models import SandboxConfig, parse_config
-from .modules import BuildContext, DEFAULT_PIPELINE, ModuleFunc
+from .modules import BuildContext, DEFAULT_PIPELINE
 
 STATE_FILE = Path(__file__).resolve().parent / ".sandbox_state.json"
 
@@ -30,15 +30,13 @@ class AssemblyResult:
 
 def assemble(
     config: SandboxConfig | dict[str, Any],
-    pipeline: list[ModuleFunc] | None = None,
 ) -> AssemblyResult:
-    """Build in-memory artifacts from a config object and optional pipeline."""
+    """Build in-memory artifacts from a config object."""
     ensure_builtin_background_services_registered()
     parsed = parse_config(config)
     context = BuildContext()
-    active_pipeline = pipeline or DEFAULT_PIPELINE
 
-    for module_func in active_pipeline:
+    for module_func in DEFAULT_PIPELINE:
         module_func(parsed, context)
 
     if parsed.workspace_host_path:
@@ -56,10 +54,9 @@ def assemble(
 def assemble_and_write(
     config: SandboxConfig | dict[str, Any],
     output_dir: str | Path = ".",
-    pipeline: list[ModuleFunc] | None = None,
 ) -> AssemblyResult:
     """Assemble artifacts and write them to disk under `output_dir`."""
-    result = assemble(config=config, pipeline=pipeline)
+    result = assemble(config=config)
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -73,8 +70,6 @@ def assemble_and_write(
 
 def build_image(
     config: SandboxConfig | dict[str, Any],
-    state_file: str | Path = STATE_FILE,
-    pipeline: list[ModuleFunc] | None = None,
     tag: str | None = None,
 ) -> str:
     """Build image via Docker SDK and persist image/config state."""
@@ -82,7 +77,7 @@ def build_image(
     generated_skill_path = _generate_sandbox_env_skill(parsed)
     if generated_skill_path:
         parsed.sandbox_env_skill_path = generated_skill_path
-    result = assemble(parsed, pipeline=pipeline)
+    result = assemble(parsed)
 
     with tempfile.TemporaryDirectory(prefix="ctf-sandbox-build-") as tmp_dir:
         build_root = Path(tmp_dir)
@@ -102,25 +97,17 @@ def build_image(
         "image_id": image.id,
         "run_params": result.container_options,
     }
-    Path(state_file).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    STATE_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return image.id
 
 
 def run_container(
-    config: SandboxConfig | dict[str, Any] | None = None,
     state_file: str | Path = STATE_FILE,
-    pipeline: list[ModuleFunc] | None = None,
 ) -> str:
-    """Run a container from stored state/config and return container id."""
+    """Run a container from stored state and return container id."""
     state = _load_state(state_file)
     image_ref = state["image_id"]
-
-    if config is not None:
-        parsed = parse_config(config)
-        result = assemble(parsed, pipeline=pipeline)
-        opts = result.container_options
-    else:
-        opts = state["run_params"]
+    opts = state["run_params"]
 
     client = docker.from_env()
     container_name = _generate_container_name(opts.get("name_prefix", "agent-sandbox"))
