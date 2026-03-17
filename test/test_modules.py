@@ -109,9 +109,9 @@ def test_apply_skills_mounts_env_explicit_and_service_skills() -> None:
         }
     )
     apply_skills(config, context)
-    assert "./.sandbox_generated/skills/sandbox-environment-hint:/home/agent/.opencode/skills/sandbox-environment-hint" in context.volumes
-    assert "./skills/custom:/home/agent/.opencode/skills/custom" in context.volumes
-    assert "./skills/mcp-terminal-operator:/home/agent/.opencode/skills/mcp-terminal-operator" in context.volumes
+    assert "./.sandbox_generated/skills/sandbox-environment-hint:/home/agent/.config/opencode/skills/sandbox-environment-hint" in context.volumes
+    assert "./skills/custom:/home/agent/.config/opencode/skills/custom" in context.volumes
+    assert "./skills/mcp-terminal-operator:/home/agent/.config/opencode/skills/mcp-terminal-operator" in context.volumes
 
 
 def test_default_pipeline_contains_all_module_steps() -> None:

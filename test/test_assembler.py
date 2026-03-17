@@ -221,8 +221,8 @@ def test_generate_sandbox_env_skill_writes_markdown(tmp_path: Path) -> None:
     text = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
     assert "timezone: UTC" in text
     assert "background-service:mcp-terminal" in text
-    assert "agent-cli-tool:codex" in text
-    assert "## name: web" in text
+    assert "services: mcp-terminal" in text
+    assert "### name: web" in text
 
 
 def test_generate_sandbox_env_skill_returns_none_when_disabled() -> None:
