@@ -1,1 +1,46 @@
+# Python cache / artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Tooling
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local runtime artifacts
+Dockerfile
+config.json
 session/
+*.log
+.sandbox_state.json
+.sandbox_generated/
+
+# Reference-only materials
+old/
+plan.md
+config.yaml
