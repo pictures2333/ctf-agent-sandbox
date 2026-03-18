@@ -7,6 +7,13 @@ description: Use this skill when interacting with the MCP Terminal server. Apply
 
 Use the MCP terminal as a persistent shell, not as a stateless command runner.
 
+## When To Use
+
+- Execute the target. Interact with it and analyze it's behavior.
+- Execute interactive tools.
+    - GDB
+    - And every interactive tools.
+
 ## Workflow
 
 Follow this workflow strictly. Do not skip steps unless the current session has already completed the earlier required step.
@@ -95,7 +102,11 @@ Use larger `limit` values only when needed. Prefer smaller reads first to avoid 
 
 ### Example 1: Interactive Tools
 
-The example shows how to use an interactive tool like GDB via the MCP Terminal.
+The example shows how to use an interactive tool via MCP Terminal.
+
+Using GDB as an example.
+
+In an interactive shell (MCP Terminal), interact with GDB directly is available.
 
 1. Use ``session_open()`` to open a new session.
 2. Use ``session_input()`` to open GDB.
